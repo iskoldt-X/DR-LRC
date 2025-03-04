@@ -1,6 +1,6 @@
 # DR-LRC
 
-A Python script to download DR LYD audio, generate subtitles using Whisper, convert the subtitles to LRC lyrics format, and embed these lyrics into the MP3 file.
+A Python script to download DR LYD audio, generate subtitles using Whisper, convert the subtitles to LRC lyrics format, add English translatation using Ollama and Gemma 2, and embed these lyrics into the MP3 file.
 
 
 > **Disclaimer:** This project is intended for educational and research purposes only. The author does not endorse or promote the unauthorized distribution of copyrighted content. Please respect the rights of content creators and only use this tool to download content that is freely available on the internet and use it for study Danish and only for personal use. The code was written by the help of ChatGPT.
@@ -13,6 +13,8 @@ A Python script to download DR LYD audio, generate subtitles using Whisper, conv
 - **Generate subtitles:** Uses Whisper CLI to generate an SRT subtitle file from the WAV file.
 - **Convert SRT to LRC:** Converts the generated SRT file into LRC (lyric) format.
 - **Embed lyrics:** Embeds the LRC lyrics into the MP3 file using ID3 tags.
+
+- **(Optional) Generate a translated copy:** If you pass the `translate` argument, using Ollama and Gemma 2, a second MP3 is created containing Danish + English lyrics.
 - **Cleanup:** Removes intermediate files (WAV, SRT, LRC) so that only the final MP3 remains.
 
 ## Requirements
@@ -22,6 +24,7 @@ A Python script to download DR LYD audio, generate subtitles using Whisper, conv
 - [whisper-cli](https://github.com/ggerganov/whisper.cpp) must be installed. You can see the installation instructions for each platform in the repository.
 - `./build/bin/whisper-cli` must be in your system PATH.
 - Environment variable `WHISPER_MODEL_PATH` must be set to the path of your Whisper model file (e.g., `ggml-medium.bin`).
+- (Optional) Translation: If you plan to use the translate feature, you need Ollama and the Python ollama client installed, as well as an available model (e.g. `gemma2`).
 
 ## Installation
 
@@ -71,6 +74,23 @@ The script will:
 5. Embed the LRC lyrics into the MP3.
 6. Delete intermediate files, leaving only the final MP3 file.
 
+### Translation
+If you include the additional `translate` argument after the URL, the script will also:
+
+Create a second LRC file containing Danish + English lines.
+Copy the original MP3 to a new file ending in `_translated.mp3`.
+Embed the combined lyrics (Danish + English) into that second MP3.
+
+
+
+```bash
+python3 dr_lrc.py https://www.dr.dk/lyd/special-radio/tiden/tiden-2025/tiden-300-000-soldater-i-underskud-telefonfri-skole-og-et-ulvemoede-11802551038 translate
+```
+You will end up with two MP3s:
+
+The original MP3 (with Danish-only lyrics).
+A second MP3 named something like `dr_output_translated.mp3`, containing “Danish / English” lyrics.
+
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -82,5 +102,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [whisper.cpp](https://github.com/ggerganov/whisper.cpp)
 - [ffmpeg](https://ffmpeg.org/)
 - [mutagen](https://github.com/quodlibet/mutagen)
-
+- [Ollama](https://ollama.com)
+- [Gemma 2](https://ollama.com/library/gemma2:9b)
 
