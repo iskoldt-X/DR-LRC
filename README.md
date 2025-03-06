@@ -1,6 +1,6 @@
 # DR-LRC
 
-A Python script to download DR LYD audio, generate subtitles using Whisper, convert the subtitles to LRC lyrics format, add English translatation using Ollama and Gemma 2, and embed these lyrics into the MP3 file.
+A Python script to download **DR LYD** audio, generate subtitles using **Whisper**, convert the subtitles to LRC lyrics format, optionally translate them into any language via **Ollama** + **Gemma 2**, and embed these lyrics into the MP3 file.
 
 
 > **Disclaimer:** This project is intended for educational and research purposes only. The author does not endorse or promote the unauthorized distribution of copyrighted content. Please respect the rights of content creators and only use this tool to download content that is freely available on the internet and use it for study Danish and only for personal use. The code was written by the help of ChatGPT.
@@ -14,7 +14,7 @@ A Python script to download DR LYD audio, generate subtitles using Whisper, conv
 - **Convert SRT to LRC:** Converts the generated SRT file into LRC (lyric) format.
 - **Embed lyrics:** Embeds the LRC lyrics into the MP3 file using ID3 tags.
 
-- **(Optional) Generate a translated copy:** If you pass the `translate` argument, using Ollama and Gemma 2, a second MP3 is created containing Danish + English lyrics.
+- **(Optional) Generate a translated copy:** If you pass a second argument (either `translate` or a specific language name), a second MP3 is created containing Danish + translation.
 - **Cleanup:** Removes intermediate files (WAV, SRT, LRC) so that only the final MP3 remains.
 
 ## Requirements
@@ -75,21 +75,27 @@ The script will:
 6. Delete intermediate files, leaving only the final MP3 file.
 
 ### Translation
-If you include the additional `translate` argument after the URL, the script will also:
-
-Create a second LRC file containing Danish + English lines.
-Copy the original MP3 to a new file ending in `_translated.mp3`.
-Embed the combined lyrics (Danish + English) into that second MP3.
+You can optionally add a second argument to request translation into a specific language. For example, if you run:
 
 
 
 ```bash
-python3 dr_lrc.py https://www.dr.dk/lyd/special-radio/tiden/tiden-2025/tiden-300-000-soldater-i-underskud-telefonfri-skole-og-et-ulvemoede-11802551038 translate
+python3 dr_lrc.py <DR_LYD_URL> French
 ```
+
+It will create a second MP3 containing Danish + French lyrics embedded. The main MP3 remains Danish-only.
+
+If you include the word translate as the second argument, the script will default to English. For instance:
+    
+```bash
+python3 dr_lrc.py <DR_LYD_URL> translate
+```
+
 You will end up with two MP3s:
 
 The original MP3 (with Danish-only lyrics).
-A second MP3 named something like `dr_output_translated.mp3`, containing “Danish / English” lyrics.
+A second MP3 named something like dr_output_translated.mp3, containing “Danish / English” lines.
+
 
 
 ## License

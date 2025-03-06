@@ -19,10 +19,9 @@ from mutagen.id3 import ID3, USLT, Encoding
 def try_parse_json(raw_str):
     """
     Try to parse the string into JSON. If it fails, return None.
-    It can also perform pre- and post-cleaning to remove any extra text from the model's output.
     """
     raw_str = raw_str.strip()
-    # Sometimes the model outputs something like ```json ... ```, so perform simple stripping.
+    # Sometimes the model outputs ```json ... ``` so perform simple stripping
     raw_str = re.sub(r"^```(json)?|```$", "", raw_str, flags=re.IGNORECASE).strip()
 
     try:
@@ -31,37 +30,42 @@ def try_parse_json(raw_str):
     except json.JSONDecodeError:
         return None
 
-def batch_translate_dict_mode(danish_texts, debug=False, max_retries=3):
-    """
-    Wrap multiple lines of Danish into a dict, e.g. {"0": "line0", "1": "line1", ...},
-    and require the model to output the corresponding JSON (with the same keys,
-    where each value is translated into English).
-    """
-    # Prepare the dict.
-    data_to_translate = { str(i): text for i, text in enumerate(danish_texts) }
 
-    # Construct system prompt.
+def batch_translate_dict_mode(danish_texts, target_language="English", debug=False, max_retries=3):
+    """
+    Wrap multiple lines of Danish into a dict, have the model output JSON,
+    and parse it. If we detect literal backslash-u escapes (e.g. \\u4f60) in
+    the *raw* LLM text, we retry immediately (rather than decode).
+    """
+
+    # 1) Prepare the data structure we want to send to the model
+    data_to_translate = {str(i): text for i, text in enumerate(danish_texts)}
+
+    # 2) Construct the system prompt
     system_prompt = (
         "You are a translation model.\n"
-        "Your ONLY task is to translate each value in a given JSON dictionary from Danish to English.\n"
+        f"Your ONLY task is to translate each value in a given JSON dictionary from Danish to {target_language}.\n"
         "You MUST return a valid JSON object with the SAME keys, in valid JSON format, and no extra fields.\n"
         "DO NOT include any chain-of-thought or explanations.\n"
-        "If a key is '0', output the translation in the value for '0', etc.\n"
         "No commentary. No disclaimers.\n"
-        "If you cannot parse something, just do your best. The final response must be valid JSON.\n"
+        "The final response must be valid JSON.\n"
+        "Avoid ASCII-escaped unicode sequences like \\u1234.\n"
     )
-    # Construct user prompt.
+
+    # 3) Construct the user prompt
     user_prompt = (
-        "Translate the following JSON from Danish to English, preserving the keys exactly.\n\n"
+        f"Translate the following JSON from Danish to {target_language}, preserving the keys exactly.\n\n"
         "Input JSON:\n"
         + json.dumps(data_to_translate, ensure_ascii=False, indent=2)
         + "\n\n"
-        "Output must be valid JSON with the same keys, each value replaced by the English translation.\n"
+        "Output must be valid JSON with the same keys, each value replaced by the translation.\n"
+        "Do NOT produce any literal \\uXXXX escapes.\n"
     )
 
+    # 4) Send up to max_retries requests to the model
     for attempt in range(max_retries):
         response = ollama.chat(
-            model='gemma2',  # or the model you prefer
+            model='gemma2',  # or your chosen Ollama model
             messages=[
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': user_prompt}
@@ -73,20 +77,28 @@ def batch_translate_dict_mode(danish_texts, debug=False, max_retries=3):
         if debug:
             print(f"\n[DEBUG] Attempt {attempt+1} - Model raw output:\n{raw_output}\n")
 
-        # Attempt to parse JSON.
+        # 4a) Check if the raw text contains literal "\uXXXX"
+        #     If so, retry immediately (continue to next attempt)
+        if re.search(r'\\u[0-9A-Fa-f]{4}', raw_output):
+            if debug:
+                print("[DEBUG] Detected literal \\u escapes in raw output, retrying...\n")
+            continue
+
+        # 4b) Attempt to parse the JSON
         parsed = try_parse_json(raw_output)
         if parsed is not None and isinstance(parsed, dict):
-            # Optionally verify we have each key
-            # (here we do a minimal check, but partial success is accepted)
+            # If JSON parse succeeded (and we have a dict), return it now
             return parsed
         else:
             if debug:
                 print("[DEBUG] JSON parse failed or not a dict - retrying...\n")
 
-    # If all attempts fail, return an empty dict (or you could return None).
+    # 5) If we used all retries without success, return an empty dict
     return {}
 
-def process_lrc_file_batch_dict(input_file, output_file, batch_size=10, debug=False):
+
+
+def process_lrc_file_batch_dict(input_file, output_file, target_language="English", batch_size=10, debug=False):
     """
     Read a .lrc file, translate its content in batches using the "JSON dict" method,
     and insert the translation into a new LRC file as: original / translation.
@@ -112,7 +124,7 @@ def process_lrc_file_batch_dict(input_file, output_file, batch_size=10, debug=Fa
         if debug:
             print(f"\n[DEBUG] Processing batch {i // batch_size + 1}: {batch}")
 
-        result_dict = batch_translate_dict_mode(batch, debug=debug)
+        result_dict = batch_translate_dict_mode(batch, target_language=target_language, debug=debug)
         # Extract translations in order.
         for j in range(len(batch)):
             key_str = str(j)
@@ -125,7 +137,6 @@ def process_lrc_file_batch_dict(input_file, output_file, batch_size=10, debug=Fa
         match = re.match(r"(\[\d{2}:\d{2}\.\d{2}\])(.*)", lines[idx].strip())
         if match:
             timestamp, original_text = match.groups()
-            # Combine original text and translation
             translated_lines[idx] = f"{timestamp}{original_text} / {translation}\n"
 
     with open(output_file, 'w', encoding='utf-8') as f:
@@ -305,7 +316,7 @@ def embed_lyrics(mp3_file, lrc_file):
         audio.tags.add(
             USLT(
                 encoding=Encoding.UTF8,
-                lang='dan',
+                lang='dan',  # For the original Danish version; you might update this for translations if needed.
                 desc='Lyrics',
                 text=lyrics
             )
@@ -335,14 +346,23 @@ def clean_intermediate_files(files):
 if __name__ == "__main__":
     # Check command line arguments
     if len(sys.argv) < 2:
-        print("Usage: python3 dr_lrc.py <DR_LYD_URL> [translate]")
+        print("Usage: python3 dr_lrc.py <DR_LYD_URL> [target_language]")
         sys.exit(1)
 
     url = sys.argv[1]
-    do_translate = (len(sys.argv) > 2 and sys.argv[2].lower() == "translate")
+    # Determine target language from argument, if provided.
+    if len(sys.argv) > 2:
+        language_arg = sys.argv[2]
+        # If the argument is "translate", default to English.
+        target_language = "English" if language_arg.lower() == "translate" else language_arg
+    else:
+        target_language = None
 
     print(f"Processing URL: {url}")
-    print(f"Translation mode: {do_translate}")
+    if target_language:
+        print(f"Translation target language: {target_language}")
+    else:
+        print("No translation target provided; proceeding without translation.")
 
     # Get the model path from environment variable WHISPER_MODEL_PATH
     model_path = os.environ.get("WHISPER_MODEL_PATH")
@@ -363,21 +383,23 @@ if __name__ == "__main__":
     # Step 4: Embed the LRC into the MP3 (original Danish)
     embed_lyrics(mp3_file, lrc_file)
 
-    # --- New Step: If "translate" requested, produce a second MP3 with translated lyrics ---
-    if do_translate:
+    # --- New Step: If a target language is provided, produce a second MP3 with translated lyrics ---
+    if target_language is not None:
         base_name = os.path.splitext(lrc_file)[0]
-        translated_lrc_file = base_name + "_translated.lrc"
+        # Append the target language (in lower-case) to the filename.
+        translated_lrc_file = base_name + f"_{target_language.lower()}_translated.lrc"
 
-        # Translate and produce a new LRC (Danish / English)
+        # Translate and produce a new LRC (Danish / target language)
         process_lrc_file_batch_dict(
             input_file=lrc_file,
             output_file=translated_lrc_file,
+            target_language=target_language,
             batch_size=10,
             debug=True
         )
 
-        # Make a second MP3 file, e.g. "safe_title_translated.mp3"
-        translated_mp3_file = os.path.splitext(mp3_file)[0] + "_translated.mp3"
+        # Make a second MP3 file, e.g. "safe_title_chinese_translated.mp3"
+        translated_mp3_file = os.path.splitext(mp3_file)[0] + f"_{target_language.lower()}_translated.mp3"
         shutil.copyfile(mp3_file, translated_mp3_file)
 
         # Embed the new LRC (with translations) into the second MP3
@@ -386,14 +408,13 @@ if __name__ == "__main__":
         print(f"✅ Created translated MP3: {translated_mp3_file}")
 
     # Step 5: Clean up intermediate files (WAV, SRT, LRC)
-    # Decide whether you also want to remove the translated LRC if do_translate == True
     files_to_remove = [wav_file, srt_file, lrc_file]
-    # If you want to remove the translated LRC as well, uncomment:
-    # if do_translate:
+    # Optionally remove the translated LRC as well if desired:
+    # if target_language is not None:
     #     files_to_remove.append(translated_lrc_file)
 
     clean_intermediate_files(files_to_remove)
 
     print("All steps completed. Final output file:", mp3_file)
-    if do_translate:
+    if target_language is not None:
         print("Additionally created translated file:", translated_mp3_file)
