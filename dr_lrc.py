@@ -1,3 +1,4 @@
+import unicodedata
 import re
 import json
 import subprocess
@@ -12,6 +13,17 @@ import ollama
 
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, USLT, Encoding
+
+def normalize_filename(filename):
+    # Normalize to NFKD form to decompose characters
+    nfkd_form = unicodedata.normalize('NFKD', filename)
+    # Encode to ASCII bytes, ignoring characters that can't be converted
+    ascii_bytes = nfkd_form.encode('ASCII', 'ignore')
+    # Decode back to a string
+    ascii_str = ascii_bytes.decode('ASCII')
+    # Replace any non-alphanumeric characters (except dash) with underscores
+    ascii_str = re.sub(r'[^A-Za-z0-9\-]+', '_', ascii_str)
+    return ascii_str
 
 #################################
 # Translation-related utilities
@@ -129,7 +141,7 @@ def process_lrc_file_batch_dict(input_file, output_file, target_language="Englis
         for j in range(len(batch)):
             key_str = str(j)
             translation_value = result_dict.get(key_str, "")
-            translations.append(translation_value.strip())
+            translations.append((translation_value or "").strip())
 
     # Insert the translation results into the file lines.
     translated_lines = lines.copy()
@@ -205,7 +217,7 @@ def download_dr_radio(url):
             .get("episode", {})
             .get("title", "dr_output")
     )
-    safe_title = re.sub(r"[^\w\u4e00-\u9fa5-]+", "_", episode_title)
+    safe_title = normalize_filename(episode_title)
     mp3_filename = f"{safe_title}.mp3"
 
     print(f"Downloading to MP3: {mp3_filename}")
