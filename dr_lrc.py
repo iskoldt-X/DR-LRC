@@ -77,7 +77,7 @@ def batch_translate_dict_mode(danish_texts, target_language="English", debug=Fal
     # 4) Send up to max_retries requests to the model
     for attempt in range(max_retries):
         response = ollama.chat(
-            model='gemma2',  # or your chosen Ollama model
+            model='gemma3:12b',  # or your chosen Ollama model
             messages=[
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': user_prompt}
