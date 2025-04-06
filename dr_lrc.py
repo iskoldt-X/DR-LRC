@@ -47,7 +47,7 @@ def try_parse_json(raw_str):
 
 
 def batch_translate_dict_mode(
-    danish_texts, target_language="English", debug=False, max_retries=3
+    danish_texts, target_language="English", debug=False, max_retries=10
 ):
     """
     Wrap multiple lines of Danish into a dict, have the model output JSON,
@@ -64,7 +64,7 @@ def batch_translate_dict_mode(
         Your ONLY task is to translate the given JSON dictionary's values from Danish into accurate, fluent, and contextually appropriate {target_language} suitable for audio subtitles.
 
         Requirements:
-        - Return ONLY a valid JSON object with exactly the SAME keys and translated values. 
+        - Return ONLY a valid JSON object with exactly the SAME keys and translated values, also same number of keys.
         - Do NOT add any extra fields or metadata.
         - Ensure translations are natural, conversational, and appropriate for spoken audio subtitles.
         - Preserve proper nouns, titles, place names, and culturally specific references without translation unless widely known equivalents exist.
@@ -81,7 +81,7 @@ def batch_translate_dict_mode(
         {json.dumps(data_to_translate, ensure_ascii=False, indent=2)}
 
         Output requirements:
-        - Output JSON must exactly match the input JSON structure (same keys, translated values).
+        - Output JSON must exactly match the input JSON structure (same keys, translated values, same number of keys).
         - Each translation should be suitable for subtitle reading, natural sounding, concise, and contextually accurate for spoken content.
         - DO NOT include explanations, commentary, or literal unicode escapes (\\uXXXX sequences).
         - Ensure cultural nuances or references remain clear to an audience unfamiliar with Danish culture by briefly adapting or clarifying if necessary.
@@ -115,6 +115,13 @@ def batch_translate_dict_mode(
         # 4b) Attempt to parse the JSON
         parsed = try_parse_json(raw_output)
         if parsed is not None and isinstance(parsed, dict):
+
+            if set(parsed.keys()) != set(data_to_translate.keys()):
+                if debug:
+                    print(
+                        "[DEBUG] The number of keys in the translated JSON does not match the input JSON. Retrying...\n"
+                    )
+                continue
             # Additional check: verify that the same translation is not repeated for more than 2 distinct inputs.
 
             translation_groups = defaultdict(list)
@@ -501,7 +508,7 @@ if __name__ == "__main__":
         # Embed the new LRC (with translations) into the second MP3
         embed_lyrics(translated_mp3_file, translated_lrc_file)
 
-        print(f"✅ Created translated MP3: {translated_mp3_file}")
+        print(f"Created translated MP3: {translated_mp3_file}")
 
     # Step 5: Clean up intermediate files (WAV, SRT, LRC)
     files_to_remove = [wav_file, srt_file, lrc_file]
