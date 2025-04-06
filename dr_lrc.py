@@ -59,25 +59,35 @@ def batch_translate_dict_mode(
     data_to_translate = {str(i): text for i, text in enumerate(danish_texts)}
 
     # 2) Construct the system prompt
-    system_prompt = (
-        "You are a translation model.\n"
-        f"Your ONLY task is to translate each value in a given JSON dictionary from Danish to {target_language}.\n"
-        "You MUST return a valid JSON object with the SAME keys, in valid JSON format, and no extra fields.\n"
-        "DO NOT include any chain-of-thought or explanations.\n"
-        "No commentary. No disclaimers.\n"
-        "The final response must be valid JSON.\n"
-        "Avoid ASCII-escaped unicode sequences like \\u1234.\n"
-    )
+    system_prompt = f"""
+        You are an expert translation model specifically optimized for translating Danish podcast subtitles into {target_language}.
+        Your ONLY task is to translate the given JSON dictionary's values from Danish into accurate, fluent, and contextually appropriate {target_language} suitable for audio subtitles.
+
+        Requirements:
+        - Return ONLY a valid JSON object with exactly the SAME keys and translated values. 
+        - Do NOT add any extra fields or metadata.
+        - Ensure translations are natural, conversational, and appropriate for spoken audio subtitles.
+        - Preserve proper nouns, titles, place names, and culturally specific references without translation unless widely known equivalents exist.
+        - Absolutely avoid literal unicode escapes (such as \\uXXXX). Output must be human-readable characters.
+        - Avoid repeating the same translation for multiple distinct inputs unless identical in Danish.
+        - Maintain consistency in tone and style across all subtitles.
+        """
 
     # 3) Construct the user prompt
-    user_prompt = (
-        f"Translate the following JSON from Danish to {target_language}, preserving the keys exactly.\n\n"
-        "Input JSON:\n"
-        + json.dumps(data_to_translate, ensure_ascii=False, indent=2)
-        + "\n\n"
-        "Output must be valid JSON with the same keys, each value replaced by the translation.\n"
-        "Do NOT produce any literal \\uXXXX escapes.\n"
-    )
+    user_prompt = f"""
+        Translate the following JSON dictionary containing Danish podcast subtitles into {target_language}, exactly preserving the keys and returning valid JSON as specified.
+
+        Input JSON:
+        {json.dumps(data_to_translate, ensure_ascii=False, indent=2)}
+
+        Output requirements:
+        - Output JSON must exactly match the input JSON structure (same keys, translated values).
+        - Each translation should be suitable for subtitle reading, natural sounding, concise, and contextually accurate for spoken content.
+        - DO NOT include explanations, commentary, or literal unicode escapes (\\uXXXX sequences).
+        - Ensure cultural nuances or references remain clear to an audience unfamiliar with Danish culture by briefly adapting or clarifying if necessary.
+
+        Provide the translated JSON ONLY:
+        """
 
     # 4) Send up to max_retries requests to the model
     for attempt in range(max_retries):
