@@ -91,6 +91,10 @@ def batch_translate_dict_mode(
 
     # 4) Send up to max_retries requests to the model
     for attempt in range(max_retries):
+        if attempt == max_retries - 1:
+            print(
+                f"[WARNING] Maximum retries ({max_retries}) reached. You may see incorrect translations."
+            )
         response = ollama.chat(
             model="gemma3:12b",  # or your chosen Ollama model
             messages=[
@@ -121,6 +125,12 @@ def batch_translate_dict_mode(
                     print(
                         "[DEBUG] The number of keys in the translated JSON does not match the input JSON. Retrying...\n"
                     )
+                    if user_prompt.startswith("Last time your output's number of keys did not match the input JSON."):
+                        continue
+                    else:
+                        user_prompt = (
+                            "Last time your output's number of keys did not match the input JSON. Please ensure the number of keys is the same. Thank you. \n"
+                        ) + user_prompt
                 continue
             # Additional check: verify that the same translation is not repeated for more than 2 distinct inputs.
 
@@ -208,7 +218,28 @@ def process_lrc_file_batch_dict(
     with open(output_file, "w", encoding="utf-8") as f:
         f.writelines(translated_lines)
 
-    print(f"✅ Translation completed. Output saved to: {output_file}")
+    print(f"Translation completed. Output saved to: {output_file}")
+
+
+def convert_audio(input_file, output_file):
+    ext = output_file.split(".")[-1].lower()
+    cmd = ["ffmpeg", "-y", "-i", input_file, "-ar", "16000", "-ac", "1"]
+
+    if ext == "wav":
+        cmd += ["-c:a", "pcm_s16le"]
+    elif ext == "mp3":
+        cmd += ["-c:a", "libmp3lame"]
+    elif ext == "flac":
+        cmd += ["-c:a", "flac"]
+    else:
+        pass
+
+    cmd.append(output_file)
+
+    subprocess.run(
+        cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    print(f"Conversion complete: {output_file}")
 
 
 #########################################################
@@ -297,24 +328,8 @@ def download_dr_radio(url):
     print(f"Download and MP3 conversion complete: {mp3_filename}")
 
     # Convert MP3 -> WAV for Whisper processing
-    wav_filename = f"{safe_title}.wav"
-    ffmpeg_cmd_wav = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        mp3_filename,
-        "-c:a",
-        "pcm_s16le",
-        "-ar",
-        "16000",
-        "-ac",
-        "1",
-        wav_filename,
-    ]
-    subprocess.run(
-        ffmpeg_cmd_wav, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
-    print(f"WAV conversion complete: {wav_filename}")
+    wav_filename = os.path.splitext(mp3_filename)[0] + ".wav"
+    convert_audio(mp3_filename, wav_filename)
 
     return mp3_filename, wav_filename
 
@@ -441,12 +456,24 @@ def clean_intermediate_files(files):
 # Main flow: Download -> Whisper -> SRT -> LRC -> Embed -> Cleanup
 #########################################################
 if __name__ == "__main__":
+
+    protected_file = []
     # Check command line arguments
     if len(sys.argv) < 2:
-        print("Usage: python3 dr_lrc.py <DR_LYD_URL> [target_language]")
+        print(
+            "Usage: python3 dr_lrc.py <DR_LYD_URL or audio_file path> [target_language]"
+        )
         sys.exit(1)
 
-    url = sys.argv[1]
+    # Get the model path from environment variable WHISPER_MODEL_PATH
+    model_path = os.environ.get("WHISPER_MODEL_PATH")
+    if not model_path:
+        print("Error: WHISPER_MODEL_PATH environment variable is not set.")
+        sys.exit(1)
+    print(f"Using Whisper model from: {model_path}")
+
+    input_arg = sys.argv[1]
+
     # Determine target language from argument, if provided.
     if len(sys.argv) > 2:
         language_arg = sys.argv[2]
@@ -457,21 +484,45 @@ if __name__ == "__main__":
     else:
         target_language = None
 
-    print(f"Processing URL: {url}")
-    if target_language:
-        print(f"Translation target language: {target_language}")
+    if "dr.dk" in input_arg:
+        url = input_arg
+        print(f"Processing URL: {url}")
+        if target_language:
+            print(f"Translation target language: {target_language}")
+        else:
+            print("No translation target provided; proceeding without translation.")
+
+        # Step 1: Download -> MP3 and produce WAV
+        mp3_file, wav_file = download_dr_radio(url)
+
     else:
-        print("No translation target provided; proceeding without translation.")
+        if not os.path.exists(input_arg):
+            print(f"Error: File does not exist: {input_arg}")
+            sys.exit(1)
+        protected_file.append(input_arg)
 
-    # Get the model path from environment variable WHISPER_MODEL_PATH
-    model_path = os.environ.get("WHISPER_MODEL_PATH")
-    if not model_path:
-        print("Error: WHISPER_MODEL_PATH environment variable is not set.")
-        sys.exit(1)
-    print(f"Using Whisper model from: {model_path}")
-
-    # Step 1: Download -> MP3 and produce WAV
-    mp3_file, wav_file = download_dr_radio(url)
+        if input_arg.endswith(".mp3") or input_arg.endswith(".MP3"):
+            mp3_file = input_arg
+            wav_file = os.path.splitext(mp3_file)[0] + ".wav"
+            print(f"Processing MP3 file: {mp3_file}")
+            # Convert MP3 to WAV
+            convert_audio(mp3_file, wav_file)
+        elif input_arg.endswith(".wav") or input_arg.endswith(".WAV"):
+            wav_file = input_arg
+            mp3_file = os.path.splitext(wav_file)[0] + ".mp3"
+            print(f"Processing WAV file: {wav_file}")
+            # Convert WAV to MP3
+            convert_audio(wav_file, mp3_file)
+        else:
+            # try to convert the file to WAV and MP3
+            try:
+                wav_file = os.path.splitext(input_arg)[0] + ".wav"
+                mp3_file = os.path.splitext(input_arg)[0] + ".mp3"
+                convert_audio(input_arg, wav_file)
+                convert_audio(input_arg, mp3_file)
+            except Exception as e:
+                print(f"Error converting file: {e}")
+                sys.exit(1)
 
     # Step 2: Generate SRT using whisper-cli
     srt_file = generate_srt_with_whisper(
@@ -512,6 +563,10 @@ if __name__ == "__main__":
 
     # Step 5: Clean up intermediate files (WAV, SRT, LRC)
     files_to_remove = [wav_file, srt_file, lrc_file]
+    for f in files_to_remove:
+        if f in protected_file:
+            print(f"Skipping deletion of protected file: {f}")
+            files_to_remove.remove(f)
     # Optionally remove the translated LRC as well if desired:
     # if target_language is not None:
     #     files_to_remove.append(translated_lrc_file)

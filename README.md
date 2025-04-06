@@ -2,6 +2,8 @@
 
 A Python script to download **DR LYD** audio, generate subtitles using **Whisper**, convert the subtitles to LRC lyrics format, optionally translate them into any language via **Ollama** + **Gemma 3**, and embed these lyrics into the MP3 file.
 
+**Now also supports local audio files (MP3 or WAV) for transcription, translation, and lyric embedding – no DR link required.**
+
 
 > **Disclaimer:** This project is intended for educational and research purposes only. The author does not endorse or promote the unauthorized distribution of copyrighted content. Please respect the rights of content creators and only use this tool to download content that is freely available on the internet and use it for study Danish and only for personal use. The code was written by the help of ChatGPT.
 
@@ -10,9 +12,12 @@ A Python script to download **DR LYD** audio, generate subtitles using **Whisper
 
 - **Download DR LYD audio:** Scrapes a DR LYD program page to extract the m3u8 URL and downloads the audio as an MP3 file using ffmpeg.
 - **Convert audio for Whisper:** Converts the downloaded MP3 file to WAV (mono, 16 kHz) for compatibility with Whisper.
+- **(NEW) Transcribe local audio files:** You can pass a local MP3 or WAV file to the script. It will convert, transcribe, and optionally translate it just like a DR podcast.
 - **Generate subtitles:** Uses Whisper CLI to generate an SRT subtitle file from the WAV file.
 - **Convert SRT to LRC:** Converts the generated SRT file into LRC (lyric) format.
 - **Embed lyrics:** Embeds the LRC lyrics into the MP3 file using ID3 tags.
+- **(Optional) Generate a translated copy:** If you pass a second argument (either `translate` or a specific language name), a second MP3 is created containing Danish + translation.
+- **Cleanup:** Removes intermediate files (WAV, SRT, LRC) so that only the final MP3 remains.
 
 - **(Optional) Generate a translated copy:** If you pass a second argument (either `translate` or a specific language name), a second MP3 is created containing Danish + translation.
 - **Cleanup:** Removes intermediate files (WAV, SRT, LRC) so that only the final MP3 remains.
@@ -79,10 +84,12 @@ A Python script to download **DR LYD** audio, generate subtitles using **Whisper
 
 ## Usage
 
+### 1. Process DR LYD Podcast
+
 Run the script from the command line by providing a DR LYD URL:
 
 ```bash
-python3 dr_lrc.py https://www.dr.dk/lyd/special-radio/tiden/tiden-2025/tiden-300-000-soldater-i-underskud-telefonfri-skole-og-et-ulvemoede-11802551038
+python3 dr_lrc.py https://www.dr.dk/lyd/your-podcast-link
 ```
 
 The script will:
@@ -93,6 +100,15 @@ The script will:
 4. Convert the SRT file to LRC lyrics.
 5. Embed the LRC lyrics into the MP3.
 6. Delete intermediate files, leaving only the final MP3 file.
+
+### 2. Process Local Audio File
+
+You can also use the script to process a local audio file (MP3 or WAV). Just provide the path to the file as the first argument:
+
+```bash
+python3 dr_lrc.py your_file.mp3
+```
+This will transcribe the audio, generate Danish subtitles and lyrics, and embed them into a new MP3 file. If the input is a WAV file, it will be converted to MP3 automatically.
 
 ### Translation
 You can optionally add a second argument to request translation into a specific language. For example, if you run:
