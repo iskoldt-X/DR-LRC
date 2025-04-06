@@ -63,7 +63,7 @@ A Python script to download **DR LYD** audio, generate subtitles using **Whisper
     Add the following line to your `~/.zshrc` file:
 
    ```bash
-   export WHISPER_MODEL_PATH=/path/to/your/models/ggml-large-v3.bin
+   export WHISPER_MODEL_PATH=/path/to/your/whisper.cpp/models/ggml-large-v3.bin
    export PATH="/path/to/your/whisper.cpp/build/bin:$PATH"
    ```
    Replace `/path/to/your/` with the actual path to your `whisper.cpp` directory.
