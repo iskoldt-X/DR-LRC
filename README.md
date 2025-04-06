@@ -1,6 +1,6 @@
 # DR-LRC
 
-A Python script to download **DR LYD** audio, generate subtitles using **Whisper**, convert the subtitles to LRC lyrics format, optionally translate them into any language via **Ollama** + **Gemma 2**, and embed these lyrics into the MP3 file.
+A Python script to download **DR LYD** audio, generate subtitles using **Whisper**, convert the subtitles to LRC lyrics format, optionally translate them into any language via **Ollama** + **Gemma 3**, and embed these lyrics into the MP3 file.
 
 
 > **Disclaimer:** This project is intended for educational and research purposes only. The author does not endorse or promote the unauthorized distribution of copyrighted content. Please respect the rights of content creators and only use this tool to download content that is freely available on the internet and use it for study Danish and only for personal use. The code was written by the help of ChatGPT.
@@ -24,7 +24,7 @@ A Python script to download **DR LYD** audio, generate subtitles using **Whisper
 - [whisper-cli](https://github.com/ggerganov/whisper.cpp) must be installed. You can see the installation instructions for each platform in the repository.
 - `./build/bin/whisper-cli` must be in your system PATH.
 - Environment variable `WHISPER_MODEL_PATH` must be set to the path of your Whisper model file (e.g., `ggml-medium.bin`).
-- (Optional) Translation: If you plan to use the translate feature, you need Ollama and the Python ollama client installed, as well as an available model (e.g. `gemma2`).
+- (Optional) Translation: If you plan to use the translate feature, you need Ollama and the Python ollama client installed, as well as an available model (e.g. `gemma3`).
 
 ## Installation
 
@@ -109,5 +109,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ffmpeg](https://ffmpeg.org/)
 - [mutagen](https://github.com/quodlibet/mutagen)
 - [Ollama](https://ollama.com)
-- [Gemma 2](https://ollama.com/library/gemma2:9b)
+- [Gemma 3](https://ollama.com/library/gemma3:12b)
 
