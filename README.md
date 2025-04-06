@@ -43,19 +43,39 @@ A Python script to download **DR LYD** audio, generate subtitles using **Whisper
     ```
 3. **Set up the Whisper model path in your shell.**
 
-   For example, if you are using zsh on macOS, add the following line to your `~/.zshrc` file:
+   For example, if you are using zsh on macOS
 
-   ```bash
-   export WHISPER_MODEL_PATH=/path/to/your/ggml-medium.bin
-   ```
 
-   Replace `/path/to/your/ggml-medium.bin` with the path to your Whisper model file.
    
-   Then, reload your shell configuration:
+   A quick guide to install `whisper-cli` and the model:
 
    ```bash
-    source ~/.zshrc
+
+   git clone https://github.com/ggml-org/whisper.cpp.git
+   cd whisper.cpp
+
+   # using large-v3 model for example
+   make -j large-v3     
     ```
+
+    After that, you have your model in `./models/ggml-large-v3.bin` and `whisper-cli` in `./build/bin/whisper-cli`.
+
+    Add the following line to your `~/.zshrc` file:
+
+   ```bash
+   export WHISPER_MODEL_PATH=/path/to/your/models/ggml-large-v3.bin
+   export PATH="/path/to/your/whisper.cpp/build/bin:$PATH"
+   ```
+   Replace `/path/to/your/` with the actual path to your `whisper.cpp` directory.
+
+   Then, run `source ~/.zshrc` to apply the changes.
+
+    Download and ollama and then pull the gemma3 model in the terminal:
+    ```bash
+    ollama pull gemma3:12b
+    ```
+    You can also use other models like `gemma3:4b` or `gemma3:1b` if you don't have enough GPU memory. Or you have so much GPU memory that you can use `gemma3:27b`. Just remember to change the model name in the script.
+
 
 ## Usage
 
