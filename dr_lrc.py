@@ -96,7 +96,7 @@ def batch_translate_dict_mode(
                 f"[WARNING] Maximum retries ({max_retries}) reached. You may see incorrect translations."
             )
         response = ollama.chat(
-            model="gemma3:12b",  # or your chosen Ollama model
+            model="gemma3:12b-it-q8_0",  # or your chosen Ollama model
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
